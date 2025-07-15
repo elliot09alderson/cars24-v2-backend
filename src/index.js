@@ -13,16 +13,22 @@ import { AdminRouter } from "./routes/admin.js";
 import { agentRouter } from "./routes/agentRouter.js";
 
 export const app = express();
+dotenv.config({ path: "./src/.env" });
 app.use(
   cors({
-    origin: ["http://localhost:8080", "https://frontend-cars24.vercel.app"],
+    origin: [
+      "http://localhost:8080",
+      "http://localhost:5173",
+      process.env.DEPOLYED_FRONTEND_URL,
+      "https://frontend-cars24.vercel.app",
+      "https://cars24-v2-frontend-vrws.vercel.app",
+    ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
 app.use(express.json());
-dotenv.config({ path: "./src/.env" });
 app.use(cookieParser());
 export const upload = multer({
   dest: "uploads/",
