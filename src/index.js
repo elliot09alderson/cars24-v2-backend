@@ -21,7 +21,7 @@ app.use(
       "http://localhost:5173",
       process.env.DEPOLYED_FRONTEND_URL,
       "https://frontend-cars24.vercel.app",
-      "https: //cars24-v2-frontend.vercel.app",
+      "https://cars24-v2-frontend.vercel.app",
       "https://cars24-v2-frontend-vrws.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
