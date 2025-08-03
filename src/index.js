@@ -46,7 +46,11 @@ connectDB();
 app.use("/api/v1/", vehicleRouter);
 app.use("/api/v1/", adRouter);
 app.use("/api/v1/agent", agentRouter);
-
+app.get("/", (req, res) => {
+  res.json({
+    msg: "hii working ",
+  });
+});
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/customer", customerRouter);
 app.use("/api/v1/admin", AdminRouter);
