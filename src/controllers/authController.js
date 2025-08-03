@@ -87,8 +87,8 @@ export const customerLogin = async (req, res) => {
         .cookie("customerToken", token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production", // Use secure cookies in production
-          sameSite: "Strict",
-          sameSite: "lax",
+          sameSite: "none",
+          // sameSite: "lax",
           maxAge: 1000 * 60 * 60 * 24, // 1 day
         })
         .json({
@@ -268,7 +268,7 @@ export const agentLogin = async (req, res) => {
         .cookie("agentToken", encryptedToken, {
           httpOnly: true, // Prevents client-side JavaScript access
           secure: process.env.NODE_ENV === "production", // Ensure cookies are only sent over HTTPS in production
-          sameSite: "lax", // Required for cross-origin requests
+          sameSite: "none", // Required for cross-origin requests
           maxAge: 1000 * 60 * 60 * 24, // 1 day
         })
         .json({
