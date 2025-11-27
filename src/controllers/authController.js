@@ -2,10 +2,15 @@ import { Customer } from "../models/customer.js";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { encryptToken } from "../utils/crypto.js";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
 import { Admin } from "../models/admin.js";
 import { Agent } from "../models/agent.js";
+import {
+  sendPasswordResetEmail,
+  sendPasswordResetSuccessEmail,
+} from "../utils/email.js";
 const customerLoginSchema = z.object({
   password: z
     .string()
@@ -293,5 +298,210 @@ export const agentLogout = async (req, res) => {
   } catch (error) {
     console.error("Error during agent logout:", error);
     return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// Validation schemas for forgot/reset password
+const forgotPasswordSchema = z.object({
+  email: z.string().email({ message: "Invalid email format" }),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, { message: "Token is required" }),
+  password: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters long" }),
+});
+
+// Helper function to get model by user type
+const getModelByUserType = (userType) => {
+  switch (userType) {
+    case "customer":
+      return Customer;
+    case "agent":
+      return Agent;
+    case "admin":
+      return Admin;
+    default:
+      return null;
+  }
+};
+
+// Forgot Password - sends reset email
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email, userType } = req.body;
+
+    // Validate email
+    const parsed = forgotPasswordSchema.safeParse({ email });
+    if (!parsed.success) {
+      return res.status(400).json({
+        success: false,
+        error: parsed.error.errors.map((err) => ({
+          path: err.path,
+          message: err.message,
+        })),
+      });
+    }
+
+    // Validate user type
+    const validUserTypes = ["customer", "agent", "admin"];
+    if (!userType || !validUserTypes.includes(userType)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid user type",
+      });
+    }
+
+    const Model = getModelByUserType(userType);
+    const user = await Model.findOne({ email: parsed.data.email });
+
+    if (!user) {
+      // Return success even if user not found (security best practice)
+      return res.status(200).json({
+        success: true,
+        message: "If the email exists, a password reset link has been sent",
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    // Save token and expiry to user
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    await user.save();
+
+    // Send reset email (non-blocking - added to queue)
+    sendPasswordResetEmail(user.email, resetToken, userType);
+
+    return res.status(200).json({
+      success: true,
+      message: "If the email exists, a password reset link has been sent",
+    });
+  } catch (error) {
+    console.error("Error during forgot password:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+
+// Reset Password - validates token and updates password
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, password, userType } = req.body;
+
+    // Validate input
+    const parsed = resetPasswordSchema.safeParse({ token, password });
+    if (!parsed.success) {
+      return res.status(400).json({
+        success: false,
+        error: parsed.error.errors.map((err) => ({
+          path: err.path,
+          message: err.message,
+        })),
+      });
+    }
+
+    // Validate user type
+    const validUserTypes = ["customer", "agent", "admin"];
+    if (!userType || !validUserTypes.includes(userType)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid user type",
+      });
+    }
+
+    // Hash the token to compare with stored hash
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(parsed.data.token)
+      .digest("hex");
+
+    const Model = getModelByUserType(userType);
+    const user = await Model.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpiry: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid or expired reset token",
+      });
+    }
+
+    // Hash new password and update
+    const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpiry = undefined;
+    await user.save();
+
+    // Send confirmation email (non-blocking - added to queue)
+    sendPasswordResetSuccessEmail(user.email, user.name);
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successful",
+    });
+  } catch (error) {
+    console.error("Error during password reset:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+
+// Verify Reset Token - checks if token is valid (optional endpoint)
+export const verifyResetToken = async (req, res) => {
+  try {
+    const { token, userType } = req.params;
+
+    // Validate user type
+    const validUserTypes = ["customer", "agent", "admin"];
+    if (!userType || !validUserTypes.includes(userType)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid user type",
+      });
+    }
+
+    // Hash the token to compare with stored hash
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const Model = getModelByUserType(userType);
+    const user = await Model.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpiry: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid or expired reset token",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Token is valid",
+    });
+  } catch (error) {
+    console.error("Error verifying reset token:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Internal server error",
+    });
   }
 };

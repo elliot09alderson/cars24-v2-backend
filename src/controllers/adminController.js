@@ -1,4 +1,7 @@
 import { Admin } from "../models/admin.js";
+import { Agent } from "../models/agent.js";
+import { Customer } from "../models/customer.js";
+import { VehicleModel as Vehicle } from "../models/vehicle.js";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { upload } from "../utils/multerConfig.js";
@@ -87,6 +90,219 @@ export async function createAdmin(req, res) {
         admin,
       });
     }
+  } catch (error) {
+    console.error(error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+}
+
+// Get all agents
+export async function getAllAgents(req, res) {
+  try {
+    const agents = await Agent.find()
+      .select("-password")
+      .sort({ createdAt: -1 });
+
+    // Get vehicle count for each agent
+    const agentsWithStats = await Promise.all(
+      agents.map(async (agent) => {
+        const vehicleCount = await Vehicle.countDocuments({ agent: agent._id });
+        return {
+          ...agent.toObject(),
+          totalAds: vehicleCount,
+          soldCount: 0, // Placeholder - would need to track sold status
+          activeAds: vehicleCount,
+        };
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Agents fetched successfully",
+      data: agentsWithStats,
+    });
+  } catch (error) {
+    console.error(error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+}
+
+// Get all customers
+export async function getAllCustomers(req, res) {
+  try {
+    const customers = await Customer.find()
+      .select("-password")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Customers fetched successfully",
+      data: customers,
+    });
+  } catch (error) {
+    console.error(error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+}
+
+// Get dashboard stats
+export async function getDashboardStats(req, res) {
+  try {
+    const [vehicleCount, agentCount, customerCount] = await Promise.all([
+      Vehicle.countDocuments(),
+      Agent.countDocuments(),
+      Customer.countDocuments(),
+    ]);
+
+    // Get state-wise vehicle distribution
+    const stateDistribution = await Vehicle.aggregate([
+      {
+        $group: {
+          _id: "$state",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Get recent vehicles
+    const recentVehicles = await Vehicle.find()
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select("name model year price thumbnail images status slug");
+
+    // Get monthly stats (last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const monthlyStats = await Vehicle.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: sixMonthsAgo },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: "$createdAt" },
+            year: { $year: "$createdAt" },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalVehicles: vehicleCount,
+        totalAgents: agentCount,
+        totalCustomers: customerCount,
+        stateDistribution,
+        recentVehicles,
+        monthlyStats,
+      },
+    });
+  } catch (error) {
+    console.error(error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+}
+
+// Update agent status
+export async function updateAgentStatus(req, res) {
+  const { agentId, status } = req.body;
+
+  try {
+    const agent = await Agent.findByIdAndUpdate(
+      agentId,
+      { status },
+      { new: true }
+    ).select("-password");
+
+    if (!agent) {
+      return res.status(404).json({
+        success: false,
+        error: "Agent not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Agent ${status} successfully`,
+      data: agent,
+    });
+  } catch (error) {
+    console.error(error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+}
+
+// Update vehicle status
+export async function updateVehicleStatus(req, res) {
+  const { vehicleId, status } = req.body;
+
+  try {
+    const vehicle = await Vehicle.findByIdAndUpdate(
+      vehicleId,
+      { status },
+      { new: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        error: "Vehicle not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Vehicle ${status} successfully`,
+      data: vehicle,
+    });
+  } catch (error) {
+    console.error(error.message);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+}
+
+// Delete vehicle
+export async function deleteVehicle(req, res) {
+  const { vehicleId } = req.params;
+
+  try {
+    const vehicle = await Vehicle.findByIdAndDelete(vehicleId);
+
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        error: "Vehicle not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Vehicle deleted successfully",
+    });
   } catch (error) {
     console.error(error.message);
     return res.status(500).json({

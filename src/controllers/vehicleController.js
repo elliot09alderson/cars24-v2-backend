@@ -182,16 +182,16 @@ export const getModelsByBrand = async (req, res) => {
 export const getVehicleBrands = async (req, res) => {
   try {
     const brands = await VehicleModel.aggregate([
-      { $group: { _id: "$ " } },
+      { $group: { _id: "$brand" } },
       { $project: { _id: 0, brand: "$_id" } },
+      { $sort: { brand: 1 } },
     ]);
     const brandNames = brands.reduce((acc, curr) => {
-      acc.push(curr.brand); // Add the model name to the accumulator
+      if (curr.brand) acc.push(curr.brand);
       return acc;
     }, []);
 
-    console.log(brands);
-    res.json({ message: "brands fetched successfully1", data: brandNames });
+    res.json({ message: "brands fetched successfully", data: brandNames });
   } catch (error) {
     res.status(400).json({
       message: error.message,
@@ -201,61 +201,209 @@ export const getVehicleBrands = async (req, res) => {
 
 export const filterData = async (req, res) => {
   try {
-    // Extract query parameters
-    console.log("-----------------");
     const {
       brand,
       model,
       color,
       minPrice,
       maxPrice,
-      // totalKmDriven,
       minKmDriven,
       maxKmDriven,
       minYear,
       maxYear,
-
       fuelType,
       owners,
       serialNo,
       transmission,
+      bodyType,
+      seat,
       seater,
+      assured,
+      sortBy,
+      sortOrder,
+      page,
+      limit,
+      search,
     } = req.query;
 
     // Build the filter object dynamically
     const filter = {};
-    console.log(">>>>>><<<<<<<<<");
-    if (brand && brand != "undefined") filter.brand = brand;
-    if (model && model != "undefined") filter.model = model;
-    if (color && color != "undefined") filter.color = color;
+
+    // Text search across multiple fields
+    if (search && search !== "undefined" && search.length >= 2) {
+      const regex = { $regex: search, $options: "i" };
+      filter.$or = [
+        { brand: regex },
+        { model: regex },
+        { name: regex },
+        { serialNo: regex },
+        { location: regex },
+      ];
+    }
+
+    // Handle brand - can be single value or comma-separated
+    if (brand && brand !== "undefined") {
+      const brands = brand.split(",").filter((b) => b.trim());
+      if (brands.length === 1) {
+        filter.brand = brands[0].toLowerCase();
+      } else if (brands.length > 1) {
+        filter.brand = { $in: brands.map((b) => b.toLowerCase()) };
+      }
+    }
+
+    // Handle model - can be single value or comma-separated
+    if (model && model !== "undefined") {
+      const models = model.split(",").filter((m) => m.trim());
+      if (models.length === 1) {
+        filter.model = models[0].toLowerCase();
+      } else if (models.length > 1) {
+        filter.model = { $in: models.map((m) => m.toLowerCase()) };
+      }
+    }
+
+    // Handle color - can be single value or comma-separated
+    if (color && color !== "undefined") {
+      const colors = color.split(",").filter((c) => c.trim());
+      if (colors.length === 1) {
+        filter.color = { $regex: colors[0], $options: "i" };
+      } else if (colors.length > 1) {
+        filter.color = {
+          $in: colors.map((c) => new RegExp(c, "i")),
+        };
+      }
+    }
+
+    // Price range
     if (minPrice || maxPrice) {
       filter.price = {};
-      if (minPrice) filter.price.$gte = parseFloat(minPrice); // Greater than or equal to minPrice
-      if (maxPrice) filter.price.$lte = parseFloat(maxPrice); // Less than or equal to maxPrice
+      if (minPrice && minPrice !== "undefined")
+        filter.price.$gte = parseFloat(minPrice);
+      if (maxPrice && maxPrice !== "undefined")
+        filter.price.$lte = parseFloat(maxPrice);
     }
+
+    // Year range
     if (minYear || maxYear) {
       filter.year = {};
-      if (minYear) filter.year.$gte = parseFloat(minYear); // Greater than or equal to minPrice
-      if (maxYear) filter.year.$lte = parseFloat(maxYear); // Less than or equal to maxPrice
+      if (minYear && minYear !== "undefined")
+        filter.year.$gte = parseInt(minYear);
+      if (maxYear && maxYear !== "undefined")
+        filter.year.$lte = parseInt(maxYear);
     }
+
+    // KM driven range
     if (minKmDriven || maxKmDriven) {
       filter.totalKmDriven = {};
-
-      if (minKmDriven) filter.totalKmDriven.$gte = parseFloat(minKmDriven); // Less than or equal to totalKmDriven
-      if (maxKmDriven) filter.totalKmDriven.$lte = parseFloat(maxKmDriven); // Less than or equal to totalKmDriven
+      if (minKmDriven && minKmDriven !== "undefined")
+        filter.totalKmDriven.$gte = parseFloat(minKmDriven);
+      if (maxKmDriven && maxKmDriven !== "undefined")
+        filter.totalKmDriven.$lte = parseFloat(maxKmDriven);
     }
 
-    if (fuelType && fuelType != "undefined") filter.fuelType = fuelType;
-    if (owners && owners != "undefined") filter.owners = owners;
-    if (transmission && transmission != "undefined")
-      filter.transmission = transmission;
-    if (seater && seater != "undefined") filter.seater = seater;
-    if (serialNo && serialNo != "undefined") filter.serialNo = serialNo;
-    console.log(filter);
-    // Fetch data based on the filter
-    const cars = await VehicleModel.find(filter);
+    // Handle fuelType - can be single value or comma-separated
+    if (fuelType && fuelType !== "undefined") {
+      const fuelTypes = fuelType.split(",").filter((f) => f.trim());
+      if (fuelTypes.length === 1) {
+        filter.fuelType = fuelTypes[0];
+      } else if (fuelTypes.length > 1) {
+        filter.fuelType = { $in: fuelTypes };
+      }
+    }
 
-    return res.json({ data: cars, message: "cars fetched successfully" });
+    // Handle owners - can be single value or comma-separated
+    if (owners && owners !== "undefined") {
+      const ownersList = owners.split(",").filter((o) => o.trim());
+      if (ownersList.length === 1) {
+        filter.owners = ownersList[0];
+      } else if (ownersList.length > 1) {
+        filter.owners = { $in: ownersList };
+      }
+    }
+
+    // Handle transmission - can be single value or comma-separated
+    if (transmission && transmission !== "undefined") {
+      const transmissions = transmission.split(",").filter((t) => t.trim());
+      if (transmissions.length === 1) {
+        filter.transmission = transmissions[0].toLowerCase();
+      } else if (transmissions.length > 1) {
+        filter.transmission = { $in: transmissions.map((t) => t.toLowerCase()) };
+      }
+    }
+
+    // Handle bodyType - can be single value or comma-separated
+    if (bodyType && bodyType !== "undefined") {
+      const bodyTypes = bodyType.split(",").filter((b) => b.trim());
+      if (bodyTypes.length === 1) {
+        filter.bodyType = bodyTypes[0].toLowerCase();
+      } else if (bodyTypes.length > 1) {
+        filter.bodyType = { $in: bodyTypes.map((b) => b.toLowerCase()) };
+      }
+    }
+
+    // Handle seats - can be single value or comma-separated
+    const seatValue = seat || seater;
+    if (seatValue && seatValue !== "undefined") {
+      const seats = seatValue.split(",").filter((s) => s.trim());
+      if (seats.length === 1) {
+        filter.seat = parseInt(seats[0]);
+      } else if (seats.length > 1) {
+        filter.seat = { $in: seats.map((s) => parseInt(s)) };
+      }
+    }
+
+    if (serialNo && serialNo !== "undefined") filter.serialNo = serialNo;
+
+    // Assured filter
+    if (assured && assured !== "undefined") {
+      filter.assured = assured === "true";
+    }
+
+    // Sorting
+    let sort = { createdAt: -1 }; // Default sort by newest
+    if (sortBy && sortBy !== "undefined") {
+      const order = sortOrder === "asc" ? 1 : -1;
+      switch (sortBy) {
+        case "price":
+          sort = { price: order };
+          break;
+        case "year":
+          sort = { year: order };
+          break;
+        case "km":
+          sort = { totalKmDriven: order };
+          break;
+        case "newest":
+          sort = { createdAt: -1 };
+          break;
+        case "oldest":
+          sort = { createdAt: 1 };
+          break;
+        default:
+          sort = { createdAt: -1 };
+      }
+    }
+
+    // Pagination
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 50;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Execute query
+    const [cars, totalCount] = await Promise.all([
+      VehicleModel.find(filter).sort(sort).skip(skip).limit(limitNum),
+      VehicleModel.countDocuments(filter),
+    ]);
+
+    return res.json({
+      data: cars,
+      message: "cars fetched successfully",
+      pagination: {
+        total: totalCount,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

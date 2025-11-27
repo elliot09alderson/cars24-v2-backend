@@ -74,6 +74,12 @@ const agentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Document", // Assuming your document model is named 'Document'
     },
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpiry: {
+      type: Date,
+    },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt timestamps

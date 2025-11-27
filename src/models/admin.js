@@ -34,6 +34,12 @@ const AdminSchema = new mongoose.Schema(
     tokenExpiry: {
       type: Date,
     },
+    resetPasswordToken: {
+      type: String,
+    },
+    resetPasswordExpiry: {
+      type: Date,
+    },
   },
   {
     timestamps: true,

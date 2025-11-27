@@ -6,6 +6,9 @@ import {
   checkAuth,
   customerLogin,
   customerLogout,
+  forgotPassword,
+  resetPassword,
+  verifyResetToken,
 } from "../controllers/authController.js";
 
 import express from "express";
@@ -22,3 +25,8 @@ authRouter.post("/agent/logout", authMiddleware.agentMiddleware, agentLogout);
 
 authRouter.post("/admin/login", adminLogin);
 authRouter.post("/admin/logout", adminLogout);
+
+// Password reset routes
+authRouter.post("/forgot-password", forgotPassword);
+authRouter.post("/reset-password", resetPassword);
+authRouter.get("/verify-reset-token/:userType/:token", verifyResetToken);
