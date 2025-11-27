@@ -24,7 +24,7 @@ class AuthMiddleware {
 
       // Find the customer and check token and expiry
       const customer = await Customer.findOne({
-        _id: decoded._id,
+        _id: decoded.id,
         token: decToken,
       }).select("-password ");
 
@@ -145,9 +145,9 @@ class AuthMiddleware {
       const decoded = jwt.verify(decToken, process.env.JWT_SECRET);
       //  console.log(decoded)
 
-      // Find the customer and check token and expiry
+      // Find the admin and check token and expiry
       const admin = await Admin.findOne({
-        _id: decoded._id,
+        _id: decoded.id,
         token: decToken,
       }).select("-password ");
 

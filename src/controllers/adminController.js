@@ -102,7 +102,28 @@ export async function createAdmin(req, res) {
 // Get all agents
 export async function getAllAgents(req, res) {
   try {
-    const agents = await Agent.find()
+    const { search, status } = req.query;
+
+    // Build query filter
+    let filter = {};
+
+    // Search filter
+    if (search && search !== "undefined" && search.length >= 2) {
+      const regex = { $regex: search, $options: "i" };
+      filter.$or = [
+        { name: regex },
+        { email: regex },
+        { phoneNumber: regex },
+        { address: regex },
+      ];
+    }
+
+    // Status filter
+    if (status && status !== "all") {
+      filter.status = status;
+    }
+
+    const agents = await Agent.find(filter)
       .select("-password")
       .sort({ createdAt: -1 });
 
