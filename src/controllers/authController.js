@@ -111,9 +111,14 @@ export const customerLogin = async (req, res) => {
 };
 export const customerLogout = async (req, res) => {
   try {
-    res.clearCookie("customerToken", { httpOnly: true, secure: true });
-    res.clearCookie("agentToken", { httpOnly: true, secure: true });
-    res.clearCookie("adminToken", { httpOnly: true, secure: true });
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+    };
+    res.clearCookie("customerToken", cookieOptions);
+    res.clearCookie("agentToken", cookieOptions);
+    res.clearCookie("adminToken", cookieOptions);
 
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
@@ -197,14 +202,18 @@ export const adminLogin = async (req, res) => {
 
 export const adminLogout = async (req, res) => {
   try {
-    res.clearCookie("adminToken", { httpOnly: true, secure: true });
-
-    res.clearCookie("customerToken", { httpOnly: true, secure: true });
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+    };
+    res.clearCookie("adminToken", cookieOptions);
+    res.clearCookie("customerToken", cookieOptions);
 
     // Respond with a success message
     return res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
-    console.error("Error during agent logout:", error);
+    console.error("Error during admin logout:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -289,9 +298,14 @@ export const agentLogin = async (req, res) => {
 };
 export const agentLogout = async (req, res) => {
   try {
-    res.clearCookie("agentToken", { httpOnly: true, secure: true });
-    res.clearCookie("customerToken", { httpOnly: true, secure: true });
-    res.clearCookie("agentToken", { httpOnly: true, secure: true });
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+    };
+    res.clearCookie("agentToken", cookieOptions);
+    res.clearCookie("customerToken", cookieOptions);
+    res.clearCookie("adminToken", cookieOptions);
 
     // Respond with a success message
     return res.status(200).json({ message: "Logged out successfully" });
