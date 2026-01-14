@@ -16,15 +16,33 @@ export const app = express();
 dotenv.config({ path: "./src/.env" });
 app.use(
   cors({
-    origin: [
-      "http://localhost:8080",
-      "http://localhost:8081",
-      "http://localhost:5173",
-      process.env.DEPOLYED_FRONTEND_URL,
-      "https://frontend-cars24.vercel.app",
-      "https://cars24-v2-frontend.vercel.app",
-      "https://cars24-v2-frontend-vrws.vercel.app",
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://localhost:5173",
+        process.env.DEPOLYED_FRONTEND_URL,
+        "https://frontend-cars24.vercel.app",
+        "https://cars24-v2-frontend.vercel.app",
+        "https://cars24-v2-frontend-vrws.vercel.app",
+      ];
+      
+      // Allow any local network IP (192.168.x.x, 10.x.x.x, etc.) on ports 8080, 8081, 5173
+      if (
+        origin.match(/^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):(8080|8081|5173)$/)
+      ) {
+        return callback(null, true);
+      }
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,

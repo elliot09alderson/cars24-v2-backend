@@ -54,7 +54,7 @@ class AuthMiddleware {
 
   commonMiddleware = async (req, res, next) => {
     try {
-      console.log(req.cookies);
+      console.log("Cookies received:", req.cookies);
       const token =
         req.cookies.adminToken ||
         req.cookies.customerToken ||
@@ -67,10 +67,10 @@ class AuthMiddleware {
       }
 
       // Decode the token
-      const decToken = decryptToken(token, process.env.SECRET_KEY);
-      console.log(process.env.JWT_SECRET);
+      const decToken = await decryptToken(token, process.env.SECRET_KEY);
+      console.log("Decrypted token successfully");
       const decoded = jwt.verify(decToken, process.env.JWT_SECRET);
-      console.log(decoded);
+      console.log("Decoded user:", decoded);
 
       if (!decoded) {
         return res
@@ -186,7 +186,7 @@ class AuthMiddleware {
       }
 
       // Decode the token
-      const decToken = decryptToken(token, process.env.SECRET_KEY);
+      const decToken = await decryptToken(token, process.env.SECRET_KEY);
 
       const decoded = jwt.verify(decToken, process.env.JWT_SECRET);
 
