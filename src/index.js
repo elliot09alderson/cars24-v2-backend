@@ -28,6 +28,8 @@ app.use(
         "https://frontend-cars24.vercel.app",
         "https://cars24-v2-frontend.vercel.app",
         "https://cars24-v2-frontend-vrws.vercel.app",
+        "https://karlo.live",
+        "https://www.karlo.live",
       ];
       
       // Allow any local network IP (192.168.x.x, 10.x.x.x, etc.) on ports 8080, 8081, 5173
