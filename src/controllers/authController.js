@@ -87,13 +87,16 @@ export const customerLogin = async (req, res) => {
       isPresent.tokenExpiry = new Date(Date.now() + expiryDuration);
       await isPresent.save();
 
+      // Determine if we should use secure cookies
+      const origin = req.headers.origin || "";
+      const isProduction = process.env.NODE_ENV === "production" || origin.includes("karlo.live");
+      
       return res
         .status(200)
         .cookie("customerToken", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production", // Use secure cookies in production
+          secure: isProduction, // Use secure cookies in production
           sameSite: "none",
-          // sameSite: "lax",
           maxAge: 1000 * 60 * 60 * 24, // 1 day
         })
         .json({
@@ -178,11 +181,15 @@ export const adminLogin = async (req, res) => {
       isPresent.tokenExpiry = new Date(Date.now() + expiryDuration);
       await isPresent.save();
 
+      // Determine if we should use secure cookies
+      const origin = req.headers.origin || "";
+      const isProduction = process.env.NODE_ENV === "production" || origin.includes("karlo.live");
+      
       return res
         .status(200)
         .cookie("adminToken", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production", // Use secure cookies in production
+          secure: isProduction, // Use secure cookies in production
           sameSite: "none",
           maxAge: 1000 * 60 * 60 * 24, // 1 day
         })
@@ -277,11 +284,15 @@ export const agentLogin = async (req, res) => {
 
       const agent = await Agent.findById(isPresent._id).select("-password ");
 
+      // Determine if we should use secure cookies
+      const origin = req.headers.origin || "";
+      const isProduction = process.env.NODE_ENV === "production" || origin.includes("karlo.live");
+      
       return res
         .status(200)
         .cookie("agentToken", encryptedToken, {
           httpOnly: true, // Prevents client-side JavaScript access
-          secure: process.env.NODE_ENV === "production", // Ensure cookies are only sent over HTTPS in production
+          secure: isProduction, // Ensure cookies are only sent over HTTPS in production
           sameSite: "none", // Required for cross-origin requests
           maxAge: 1000 * 60 * 60 * 24, // 1 day
         })
